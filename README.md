@@ -9,7 +9,21 @@ npm i bsp
 ## Purpose
 
 To transfer as many types of data as possible in NodeJS and automatically handle
-incomplete data.
+incomplete data. Currently these types are supported:
+
+- `string`
+- `number`
+- `boolean`
+- `symbol` not the same symbol as original, just a new symbol with the same 
+    description.
+- `undefined`
+- `null`
+- `object`
+- `Array` only the enumerable elements will be transferred.
+- `Buffer`
+- `Date`
+- `Error`
+- `RegExp`
 
 ## Usage
 
