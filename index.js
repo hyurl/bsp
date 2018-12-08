@@ -14,16 +14,18 @@ function send() {
 function* receive(buf, remains) {
     remains[0] || (remains[0] = toBuffer([]));
 
-    let pack = splitBuffer(Buffer.concat([remains[0], buf]), bufsep);
+    let packs = splitBuffer(Buffer.concat([remains[0], buf]), bufsep);
 
-    for (let part of pack) {
-        if (part && part.byteLength) {
-            let data = eb.decode(part);
+    remains[0] = toBuffer([]);
+
+    for (let pack of packs) {
+        if (pack && pack.byteLength) {
+            let data = eb.decode(pack);
 
             if (data) {
                 yield data;
             } else {
-                remains[0] = part;
+                remains[0] = pack;
             }
         }
     }

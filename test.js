@@ -29,9 +29,13 @@ describe("Basic Socket Protocol", () => {
             i++;
         }
 
+        assert.strictEqual(remains[0].byteLength, 2);
+
         for (let part of bsp.receive(buf3.slice(index), remains)) {
             assert.deepStrictEqual(part, data[i]);
             i++;
         }
+
+        assert.strictEqual(remains[0].byteLength, 0);
     });
 });
