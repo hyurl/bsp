@@ -7,8 +7,8 @@ describe("Basic Socket Protocol", () => {
     it("should encode data to buffer and decode complete data as expected", () => {
         var data = ["a string", ["an", "array"]],
             buf = bsp.send.apply(void 0, data),
-            remains = [],
-            res = bsp.receive(buf, remains);
+            temp = [],
+            res = bsp.receive(buf, temp);
 
         for (let part of res) {
             assert.deepStrictEqual(part, data);
@@ -21,21 +21,21 @@ describe("Basic Socket Protocol", () => {
             buf2 = bsp.send.apply(void 0, data[1]),
             buf3 = Buffer.concat([buf, buf2]),
             index = buf.byteLength + 2,
-            remains = [],
+            temp = [],
             i = 0;
 
-        for (let part of bsp.receive(buf3.slice(0, index), remains)) {
+        for (let part of bsp.receive(buf3.slice(0, index), temp)) {
             assert.deepStrictEqual(part, data[i]);
             i++;
         }
 
-        assert.strictEqual(remains[0].byteLength, 2);
+        assert.strictEqual(temp[0].byteLength, 2);
 
-        for (let part of bsp.receive(buf3.slice(index), remains)) {
+        for (let part of bsp.receive(buf3.slice(index), temp)) {
             assert.deepStrictEqual(part, data[i]);
             i++;
         }
 
-        assert.strictEqual(remains[0].byteLength, 0);
+        assert.strictEqual(temp[0].byteLength, 0);
     });
 });

@@ -13,10 +13,10 @@ import * as net from "net";
 import { send, receive } from "bsp";
 
 var server = net.createServer(socket => {
-    let remains = []; // a container to store remaining/incomplete data.
+    let temp = []; // a container to store incomplete data.
 
     socket.on("data", buf => {
-        for (let [msg] of receive(buf, remains)) {
+        for (let [msg] of receive(buf, temp)) {
             // the first message would be 'Hello, World!'
         }
     });
@@ -34,7 +34,7 @@ server.listen(8000, () => {
 ## API
 
 - `send(...data: any[]): Buffer`
-- `receive(buf: Buffer, remains: Buffer[]): IterableIterator<any[]>`
+- `receive(buf: Buffer, temp: Buffer[]): IterableIterator<any[]>`
 
 ## Notice
 

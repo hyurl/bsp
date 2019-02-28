@@ -10,20 +10,20 @@ function send() {
     return Buffer.concat([toBuffer(JSON.stringify(data)), bufsep]);
 }
 
-function* receive(buf, remains) {
-    remains[0] || (remains[0] = toBuffer([]));
+function* receive(buf, temp) {
+    temp[0] || (temp[0] = toBuffer([]));
 
     /** @type {Buffer[]} */
-    let packs = splitBuffer(Buffer.concat([remains[0], buf]), bufsep);
+    let packs = splitBuffer(Buffer.concat([temp[0], buf]), bufsep);
 
-    remains[0] = toBuffer([]);
+    temp[0] = toBuffer([]);
 
     for (let pack of packs) {
         if (pack && pack.byteLength) {
             try {
                 yield JSON.parse(pack.toString("utf8"));
             } catch (err) {
-                (err.name === "SyntaxError") && (remains[0] = pack);
+                (err.name === "SyntaxError") && (temp[0] = pack);
             }
         }
     }
