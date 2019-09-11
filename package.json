@@ -1,6 +1,6 @@
 {
   "name": "bsp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Basic Socket Protocol",
   "main": "index.js",
   "types": "index.d.ts",
@@ -22,11 +22,13 @@
   },
   "homepage": "https://github.com/hyurl/bsp#readme",
   "dependencies": {
-    "buffer-split": "^1.0.0",
-    "to-buffer": "^1.1.1"
+    "sprintf-js": "^1.1.2"
   },
   "devDependencies": {
     "@types/node": "^10.12.12",
     "mocha": "^5.2.0"
+  },
+  "engines": {
+    "node": ">=6.0"
   }
 }

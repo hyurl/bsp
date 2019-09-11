@@ -16,7 +16,7 @@ var server = net.createServer(socket => {
     let temp = []; // a container to store incomplete data.
 
     socket.on("data", buf => {
-        for (let [msg] of receive(buf, temp)) {
+        for (let msg of receive(buf, temp)) {
             // the first message would be 'Hello, World!'
         }
     });
@@ -34,9 +34,12 @@ server.listen(8000, () => {
 ## API
 
 - `send(...data: any[]): Buffer`
-- `receive(buf: Buffer, temp: Buffer[]): IterableIterator<any[]>`
+- `receive(buf: Buffer, temp: any[]): IterableIterator<any>`
 
 ## Notice
 
 Due to performance and compatibility considerations, this module (since version 
 0.2) uses *JSON* to transfer data instead.
+
+API change in v0.3, passing multiple arguments into `send()` now acts exactly
+the same as calling `send()` multiple times.

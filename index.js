@@ -1,30 +1,178 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const splitBuffer = require("buffer-split");
-const toBuffer = require("to-buffer");
-const bufsep = toBuffer("\r\n");
+const sprintf = require("sprintf-js").sprintf;
 
-function send() {
-    let data = Array.from(arguments);
-    return Buffer.concat([toBuffer(JSON.stringify(data)), bufsep]);
+function send(...data) {
+    let buf = Buffer.from([]);
+
+    for (let payload of data) {
+        let type = NaN;
+
+        switch (typeof payload) {
+            case "string":
+                type = 1;
+                payload = Buffer.from(payload);
+                break;
+
+            case "number":
+                type = 2;
+                payload = Buffer.from(payload.toString());
+                break;
+
+            case "bigint":
+                type = 3;
+                payload = Buffer.from(payload.toString());
+                break;
+
+            case "boolean":
+                type = 4;
+                payload = Buffer.from([Number(payload)]);
+                break;
+
+            case "object":
+                if (null === payload) {
+                    type = 0;
+                    payload = Buffer.from([]);
+                } else if (Buffer.isBuffer(payload)) {
+                    type = 6;
+                } else {
+                    type = 5;
+                    payload = Buffer.from(JSON.stringify(payload));
+                }
+                break;
+        }
+
+        let head = [type];
+        let len = payload.byteLength;
+
+        if (len <= 255) {
+            head.push(1, len);
+        } else if (len <= 65535) {
+            head.push(2);
+
+            for (let i = 0, bin = sprintf("%016b", len); i < 16;) {
+                head.push(parseInt(bin.slice(i, i += 8), 2));
+            }
+        } else {
+            head.push(3);
+
+            for (let i = 0, bin = sprintf("%064b", len); i < 64;) {
+                head.push(parseInt(bin.slice(i, i += 8), 2));
+            }
+        }
+
+        buf = Buffer.concat([buf, Buffer.from(head), payload]);
+    }
+
+    return buf;
 }
 
-function* receive(buf, temp) {
-    temp[0] || (temp[0] = toBuffer([]));
+/**
+ * @param {Buffer} buf
+ */
+function resolvePayloadInfo(buf) {
+    let offset = 0;
+    let length = 0;
+    let type = buf.readUInt8(0);
+    let lenType = buf.readUInt8(1);
+    let bin = "";
 
-    /** @type {Buffer[]} */
-    let packs = splitBuffer(Buffer.concat([temp[0], buf]), bufsep);
+    switch (lenType) {
+        case 1:
+            offset = 3;
+            length = buf.readUInt8(2);
+            break;
 
-    temp[0] = toBuffer([]);
-
-    for (let pack of packs) {
-        if (pack && pack.byteLength) {
-            try {
-                yield JSON.parse(pack.toString("utf8"));
-            } catch (err) {
-                (err.name === "SyntaxError") && (temp[0] = pack);
+        case 2:
+            for (let i = 2; i < 4; i++) {
+                bin += sprintf("%08b", buf.readUInt8(i));
             }
+
+            offset = 4;
+            length = parseInt(bin, 2);
+            break;
+
+        case 3:
+            for (let i = 2; i < 10; i++) {
+                bin += sprintf("%08b", buf.readUInt8(i));
+            }
+
+            offset = 10;
+            length = parseInt(bin, 2);
+            break;
+    }
+
+    return { type, offset, length };
+}
+
+/**
+ * @param {Buffer} buf 
+ * @param {[number, number, Buffer]} temp 
+ */
+function fillTemp(buf, temp) {
+    let { type, offset, length } = resolvePayloadInfo(buf);
+
+    if (offset !== 0) {
+        temp[0] = type;
+        temp[1] = length;
+        temp[2] = buf.slice(offset);
+    }
+}
+
+/**
+ * @param {Buffer} buf 
+ * @param {[number, number, Buffer]} temp 
+ */
+function* receive(buf, temp) {
+    // put the buffer into the temp
+    if (temp.length === 0) {
+        fillTemp(buf, temp);
+    } else if (temp.length === 3) {
+        temp[2] = Buffer.concat([temp[2], buf]);
+    }
+
+    // scan the temp and yield any parsed data
+    while (temp.length === 3 && temp[2].byteLength >= temp[1]) {
+        let [type, length, buf] = temp;
+        let payload = buf.slice(0, length);
+
+        buf = buf.slice(length);
+
+        switch (type) {
+            case 0: // null
+                yield null;
+                break;
+
+            case 1:
+                yield payload.toString("utf-8");
+                break;
+
+            case 2:
+                yield Number(payload.toString("utf-8"));
+                break;
+
+            case 3:
+                yield BigInt(payload.toString("utf-8"));
+                break;
+
+            case 4:
+                yield Boolean(payload.readUInt8(0));
+                break;
+
+            case 5:
+                yield JSON.parse(payload.toString("utf-8"));
+                break;
+
+            case 6:
+                yield payload;
+                break;
+        }
+
+        if (buf.byteLength > 0) {
+            fillTemp(buf, temp);
+        } else {
+            temp.splice(0, 3); // clean temp
         }
     }
 }

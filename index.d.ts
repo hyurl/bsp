@@ -1,2 +1,2 @@
-export declare function send<T extends Array<any>>(...data: T): Buffer;
-export declare function receive<T extends Array<any>>(buf: Buffer, temp: Buffer[]): IterableIterator<T>;
+export declare function send<T extends any>(...data: T[]): Buffer;
+export declare function receive<T extends any>(buf: Buffer, temp: any[]): IterableIterator<T>;
