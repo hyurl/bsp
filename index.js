@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 
 const sprintf = require("sprintf-js").sprintf;
 
-function send(...data) {
+function encode(...data) {
     let buf = Buffer.from([]);
 
     for (let payload of data) {
@@ -71,16 +71,27 @@ function send(...data) {
 /**
  * @param {Buffer} buf
  */
-function resolvePayloadInfo(buf) {
-    let offset = 0;
-    let length = 0;
+function parsePayloadInfo(buf) {
+    if (buf.byteLength < 3) {
+        return null; // header frame
+    }
+
     let type = buf.readUInt8(0);
     let lenType = buf.readUInt8(1);
+    let offset = [0, 3, 4, 10][lenType];
+    let length = -1;
     let bin = "";
+
+    if (type > 6 || lenType > 3) {
+        return false; // malformed/unencoded data
+    }
+
+    if (buf.byteLength < offset) {
+        return null;  // header frame
+    }
 
     switch (lenType) {
         case 1:
-            offset = 3;
             length = buf.readUInt8(2);
             break;
 
@@ -89,7 +100,6 @@ function resolvePayloadInfo(buf) {
                 bin += sprintf("%08b", buf.readUInt8(i));
             }
 
-            offset = 4;
             length = parseInt(bin, 2);
             break;
 
@@ -98,7 +108,6 @@ function resolvePayloadInfo(buf) {
                 bin += sprintf("%08b", buf.readUInt8(i));
             }
 
-            offset = 10;
             length = parseInt(bin, 2);
             break;
     }
@@ -107,16 +116,39 @@ function resolvePayloadInfo(buf) {
 }
 
 /**
+ * @param {[number, number, Buffer]} temp 
+ */
+function isHeaderTemp(temp) {
+    return temp.length === 3
+        && temp[0] === undefined
+        && temp[1] === undefined
+        && Buffer.isBuffer(temp[2]);
+}
+
+/**
  * @param {Buffer} buf 
  * @param {[number, number, Buffer]} temp 
  */
 function fillTemp(buf, temp) {
-    let { type, offset, length } = resolvePayloadInfo(buf);
+    if (isHeaderTemp(temp)) {
+        buf = Buffer.concat([temp[2], buf]);
+    }
 
-    if (offset !== 0) {
-        temp[0] = type;
-        temp[1] = length;
-        temp[2] = buf.slice(offset);
+    let info = parsePayloadInfo(buf);
+
+    if (info === false) {
+        return; // malformed/unencoded data
+    } else if (info === null) {
+        temp[0] = temp[1] = void 0;
+        temp[2] = buf;
+    } else {
+        let { type, length, offset } = info;
+
+        if (offset !== 0) {
+            temp[0] = type;
+            temp[1] = length;
+            temp[2] = buf.slice(offset);
+        }
     }
 }
 
@@ -124,9 +156,9 @@ function fillTemp(buf, temp) {
  * @param {Buffer} buf 
  * @param {[number, number, Buffer]} temp 
  */
-function* receive(buf, temp) {
+function* decode(buf, temp) {
     // put the buffer into the temp
-    if (temp.length === 0) {
+    if (temp.length === 0 || isHeaderTemp(temp)) {
         fillTemp(buf, temp);
     } else if (temp.length === 3) {
         temp[2] = Buffer.concat([temp[2], buf]);
@@ -187,7 +219,7 @@ function wrap(stream) {
     let addListener = (fn, event, listener) => {
         if (event === "data") {
             let _listener = (buf) => {
-                for (let data of receive(buf, temp)) {
+                for (let data of decode(buf, temp)) {
                     listener(data);
                 }
             };
@@ -198,7 +230,7 @@ function wrap(stream) {
     };
 
     stream.write = function write(chunk, encoding, callback) {
-        return _write(send(chunk), encoding, callback);
+        return _write(encode(chunk), encoding, callback);
     };
 
     stream.on = stream.addListener = function on(event, listener) {
@@ -220,6 +252,6 @@ function wrap(stream) {
     return stream;
 }
 
-exports.send = send;
-exports.receive = receive;
+exports.send = exports.encode = encode;
+exports.receive = exports.decode = decode;
 exports.wrap = wrap;
