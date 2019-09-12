@@ -177,5 +177,49 @@ function* receive(buf, temp) {
     }
 }
 
+function wrap(stream) {
+    let _write = stream.write.bind(stream);
+    let _on = stream.on.bind(stream);
+    let _once = stream.once.bind(stream);
+    let _prepend = stream.prependListener.bind(stream);
+    let _prependOnce = stream.prependOnceListener.bind(stream);
+    let temp = [];
+    let addListener = (fn, event, listener) => {
+        if (event === "data") {
+            let _listener = (buf) => {
+                for (let data of receive(buf, temp)) {
+                    listener(data);
+                }
+            };
+            return fn("data", _listener);
+        } else {
+            return fn(event, listener);
+        }
+    };
+
+    stream.write = function write(chunk, encoding, callback) {
+        return _write(send(chunk), encoding, callback);
+    };
+
+    stream.on = stream.addListener = function on(event, listener) {
+        return addListener(_on, event, listener);
+    };
+
+    stream.once = function once(event, listener) {
+        return addListener(_once, event, listener);
+    };
+
+    stream.prependListener = function prependListener(event, listener) {
+        return addListener(_prepend, event, listener);
+    };
+
+    stream.prependOnceListener = function prependOnceListener(event, listener) {
+        return addListener(_prependOnce, event, listener);
+    };
+
+    return stream;
+}
+
 exports.send = send;
 exports.receive = receive;
+exports.wrap = wrap;

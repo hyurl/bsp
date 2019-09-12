@@ -3,6 +3,7 @@
 const bsp = require(".");
 const assert = require("assert");
 const fs = require("fs");
+const net = require("net");
 
 describe("Basic Socket Protocol", () => {
     it("should encode and decode string as expected", () => {
@@ -175,5 +176,51 @@ describe("Basic Socket Protocol", () => {
 
         assert.deepStrictEqual(result.slice(0, 7), [...data, obj, arr]);
         assert.ok(0 === Buffer.compare(result.slice(7)[0], file));
+    });
+
+    it("should wrap net socket as expected", (done) => {
+        let filename = __dirname + "/buffer.html";
+        let data = ["Hello, World!", 12345, true, false, null];
+        let obj = { foo: "Hello, World", bar: ["an", "array"] };
+        let arr = ["Hello", "World"];
+        let file = fs.readFileSync(filename)
+
+        let serverData = [];
+        let clientData = [];
+        let server = net.createServer(socket => {
+            bsp.wrap(socket).on("data", data => {
+                serverData.push(data);
+                socket.write(data);
+            });
+        }).listen(13333);
+        let socket = bsp.wrap(net.createConnection(13333));
+
+        socket.on("data", data => {
+            clientData.push(data);
+        });
+
+        data.forEach(socket.write);
+        socket.write(obj);
+        socket.write(arr);
+        socket.write(file);
+
+        setTimeout(() => {
+            socket.end(() => {
+                server.close(() => {
+                    try {
+                        let file1 = serverData.pop();
+                        let file2 = clientData.pop();
+
+                        assert.deepStrictEqual(serverData, [...data, obj, arr]);
+                        assert.deepStrictEqual(clientData, [...data, obj, arr]);
+                        assert(Buffer.compare(file1, file2) === 0);
+                        assert(Buffer.compare(file1, file) === 0);
+                        done();
+                    } catch (err) {
+                        done(err);
+                    }
+                });
+            });
+        }, 100);
     });
 });
