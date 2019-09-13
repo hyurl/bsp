@@ -215,9 +215,9 @@ function wrap(stream) {
     let _once = stream.once.bind(stream);
     let _prepend = stream.prependListener.bind(stream);
     let _prependOnce = stream.prependOnceListener.bind(stream);
-    let temp = [];
     let addListener = (fn, event, listener) => {
         if (event === "data") {
+            let temp = [];
             let _listener = (buf) => {
                 for (let data of decode(buf, temp)) {
                     listener(data);
@@ -252,6 +252,6 @@ function wrap(stream) {
     return stream;
 }
 
-exports.send = exports.encode = encode;
-exports.receive = exports.decode = decode;
+exports.encode = encode;
+exports.decode = decode;
 exports.wrap = wrap;
