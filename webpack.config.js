@@ -1,6 +1,6 @@
 
 module.exports = {
-    mode: "development",
+    mode: "production",
     entry: "./index.js",
     devtool: "source-map",
     target: "node",

@@ -118,7 +118,9 @@ more data in order to decode.
 
 - `wrap<T extends Stream>(stream: T): T`
 - `encode(...data: any[]): Buffer | Uint8Array`
-- `decode(buf: Buffer | Uint8Array, temp: any[]): IterableIterator<any>`
+- `decode`
+    - `(buf: Buffer | Uint8Array) => any`
+    - `(buf: Buffer | Uint8Array, temp: any[]) => IterableIterator<any>`
 
 Most of the time, just use `wrap()` to automatically wrap the stream/socket
 object, all data will be automatically encoded and decoded without any headache.
@@ -143,5 +145,7 @@ socket.write(bsp.encode("Hello, World!"));
 socket.write(bsp.encode("Hi, Mr. World!"));
 ```
 
-**NOTE:** an empty array of `temp` argument mus be provided and cannot be 
-mutated by any other means except for the decode function.
+**NOTE:** an empty array of `temp` argument must be provided in order to receive
+and decode truncated data, and cannot be mutated by any other means. If this
+argument is not provided, the decode function will only parse and return the
+first chunk of the data decoded.

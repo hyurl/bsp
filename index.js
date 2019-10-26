@@ -210,7 +210,7 @@ function fillTemp(buf, temp) {
  * @param {[number, number, Buffer|Uint8Array]} temp
  * @returns {IterableIterator<any>}
  */
-function* decode(buf, temp) {
+function* decodeSegment(buf, temp) {
     // put the buffer into the temp
     if (temp.length === 0 || isHeaderTemp(temp)) {
         fillTemp(buf, temp);
@@ -260,6 +260,17 @@ function* decode(buf, temp) {
         } else {
             temp.splice(0, 3); // clean temp
         }
+    }
+}
+
+/**
+ * @param {Buffer|Uint8Array} buf 
+ */
+function decode(buf) {
+    if (arguments.length === 2 && Array.isArray(arguments[1])) {
+        return decodeSegment(buf, arguments[1]);
+    } else {
+        return decodeSegment(buf, []).next().value;
     }
 }
 

@@ -244,4 +244,12 @@ describe("Basic Socket Protocol", () => {
             });
         }, 100);
     });
+
+    it("should encode and decode a single segment as expected", () => {
+        let data = "Hello, World!";
+        let buf = bsp.encode(data);
+        let result = bsp.decode(buf);
+
+        assert.strictEqual(result, data);
+    });
 });
