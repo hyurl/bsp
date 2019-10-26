@@ -120,7 +120,7 @@ describe("Basic Socket Protocol", () => {
             result = pack;
         }
 
-        assert(Buffer.compare(result, data) === 0);
+        assert.deepStrictEqual([...result], [...data]);
     });
 
     it("should encode and decode string larger then 255 bytes as expected", () => {
