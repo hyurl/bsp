@@ -5,7 +5,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha --exit"
   },
   "repository": {
     "type": "git",
@@ -22,6 +22,8 @@
   },
   "homepage": "https://github.com/hyurl/bsp#readme",
   "dependencies": {
+    "concat-typed-array": "^1.0.2",
+    "is-like": "^0.1.2",
     "sprintf-js": "^1.1.2"
   },
   "devDependencies": {

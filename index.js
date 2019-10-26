@@ -2,9 +2,63 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const sprintf = require("sprintf-js").sprintf;
+const concatTypedArray = require("concat-typed-array");
+const { isBufferLike } = require("is-like");
+
+const hasBuffer = typeof Buffer === "function";
+const TypedArray = hasBuffer ? Buffer : Uint8Array;
+
+/** @type {TextEncoder} */
+let encoder;
+/** @type {TextDecoder} */
+let decoder;
+
+if (typeof TextEncoder === "function") {
+    encoder = new TextEncoder();
+}
+
+if (typeof TextDecoder === "function") {
+    decoder = new TextDecoder("utf8");
+}
+
+/**
+ * @param {string} text 
+ * @returns {Buffer|Uint8Array}
+ */
+function encodeText(text) {
+    if (hasBuffer) {
+        return Buffer.from(text);
+    } else if (encoder) {
+        return encoder.encode(text);
+    } else {
+        throw new Error("No implementation of text encoder was found");
+    }
+}
+
+/**
+ * @param {Buffer|Uint8Array} buf 
+ * @returns {string}
+ */
+function decodeText(buf) {
+    if (hasBuffer) {
+        return Buffer.from(buf).toString("utf8");
+    } else if (decoder) {
+        return decoder.decode(buf);
+    } else {
+        throw new Error("No implementation of text decoder was found");
+    }
+}
+
+/**
+ * @param {Buffer[] | Uint8Array[]} bufs
+ * @returns {Buffer|Uint8Array}
+ */
+function concatBuffers(bufs) {
+    return concatTypedArray(TypedArray, ...bufs);
+}
 
 function encode(...data) {
-    let buf = Buffer.from([]);
+    let buf = TypedArray.from([]);
 
     for (let payload of data) {
         let type = NaN;
@@ -12,33 +66,33 @@ function encode(...data) {
         switch (typeof payload) {
             case "string":
                 type = 1;
-                payload = Buffer.from(payload);
+                payload = encodeText(payload);
                 break;
 
             case "number":
                 type = 2;
-                payload = Buffer.from(payload.toString());
+                payload = encodeText(payload.toString());
                 break;
 
             case "bigint":
                 type = 3;
-                payload = Buffer.from(payload.toString());
+                payload = encodeText(payload.toString());
                 break;
 
             case "boolean":
                 type = 4;
-                payload = Buffer.from([Number(payload)]);
+                payload = TypedArray.from([Number(payload)]);
                 break;
 
             case "object":
                 if (null === payload) {
                     type = 0;
-                    payload = Buffer.from([]);
-                } else if (Buffer.isBuffer(payload)) {
-                    type = 6;
+                    payload = TypedArray.from([]);
+                } else if (isBufferLike(payload)) {
+                    type = 6; // raw data
                 } else {
                     type = 5;
-                    payload = Buffer.from(JSON.stringify(payload));
+                    payload = encodeText(JSON.stringify(payload));
                 }
                 break;
         }
@@ -62,22 +116,21 @@ function encode(...data) {
             }
         }
 
-        buf = Buffer.concat([buf, Buffer.from(head), payload]);
+        buf = concatBuffers([buf, TypedArray.from(head), payload]);
     }
 
     return buf;
 }
 
 /**
- * @param {Buffer} buf
+ * @param {Buffer|Uint8Array} buf
  */
 function parsePayloadInfo(buf) {
     if (buf.byteLength < 3) {
         return null; // header frame
     }
 
-    let type = buf.readUInt8(0);
-    let lenType = buf.readUInt8(1);
+    let [type, lenType] = buf;
     let offset = [0, 3, 4, 10][lenType];
     let length = -1;
     let bin = "";
@@ -92,12 +145,12 @@ function parsePayloadInfo(buf) {
 
     switch (lenType) {
         case 1:
-            length = buf.readUInt8(2);
+            length = buf[2];
             break;
 
         case 2:
             for (let i = 2; i < 4; i++) {
-                bin += sprintf("%08b", buf.readUInt8(i));
+                bin += sprintf("%08b", buf[i]);
             }
 
             length = parseInt(bin, 2);
@@ -105,7 +158,7 @@ function parsePayloadInfo(buf) {
 
         case 3:
             for (let i = 2; i < 10; i++) {
-                bin += sprintf("%08b", buf.readUInt8(i));
+                bin += sprintf("%08b", buf[i]);
             }
 
             length = parseInt(bin, 2);
@@ -116,22 +169,22 @@ function parsePayloadInfo(buf) {
 }
 
 /**
- * @param {[number, number, Buffer]} temp 
+ * @param {[number, number, Buffer|Uint8Array]} temp 
  */
 function isHeaderTemp(temp) {
     return temp.length === 3
         && temp[0] === undefined
         && temp[1] === undefined
-        && Buffer.isBuffer(temp[2]);
+        && temp[2] instanceof Uint8Array;
 }
 
 /**
- * @param {Buffer} buf 
- * @param {[number, number, Buffer]} temp 
+ * @param {Buffer|Uint8Array} buf 
+ * @param {[number, number, Buffer|Uint8Array]} temp 
  */
 function fillTemp(buf, temp) {
     if (isHeaderTemp(temp)) {
-        buf = Buffer.concat([temp[2], buf]);
+        buf = concatBuffers([temp[2], buf]);
     }
 
     let info = parsePayloadInfo(buf);
@@ -153,15 +206,16 @@ function fillTemp(buf, temp) {
 }
 
 /**
- * @param {Buffer} buf 
- * @param {[number, number, Buffer]} temp 
+ * @param {Buffer|Uint8Array} buf 
+ * @param {[number, number, Buffer|Uint8Array]} temp
+ * @returns {IterableIterator<any>}
  */
 function* decode(buf, temp) {
     // put the buffer into the temp
     if (temp.length === 0 || isHeaderTemp(temp)) {
         fillTemp(buf, temp);
     } else if (temp.length === 3) {
-        temp[2] = Buffer.concat([temp[2], buf]);
+        temp[2] = concatBuffers([temp[2], buf]);
     }
 
     // scan the temp and yield any parsed data
@@ -177,23 +231,23 @@ function* decode(buf, temp) {
                 break;
 
             case 1:
-                yield payload.toString("utf-8");
+                yield decodeText(payload);
                 break;
 
             case 2:
-                yield Number(payload.toString("utf-8"));
+                yield Number(decodeText(payload));
                 break;
 
             case 3:
-                yield BigInt(payload.toString("utf-8"));
+                yield BigInt(decodeText(payload));
                 break;
 
             case 4:
-                yield Boolean(payload.readUInt8(0));
+                yield Boolean(payload[0]);
                 break;
 
             case 5:
-                yield JSON.parse(payload.toString("utf-8"));
+                yield JSON.parse(decodeText(payload));
                 break;
 
             case 6:

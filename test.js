@@ -1,3 +1,4 @@
+/* global describe, it */
 "use strict";
 
 const bsp = require(".");
@@ -107,6 +108,21 @@ describe("Basic Socket Protocol", () => {
         assert(Buffer.compare(result, data) === 0);
     });
 
+    it("should encode and decode Uint8Array as expected", () => {
+        let filename = __dirname + "/buffer.html";
+        let data = Uint8Array.from(fs.readFileSync(filename));
+        let buf = bsp.encode(data);
+        let temp = [];
+        let res = bsp.decode(buf, temp);
+        let result;
+
+        for (let pack of res) {
+            result = pack;
+        }
+
+        assert(Buffer.compare(result, data) === 0);
+    });
+
     it("should encode and decode string larger then 255 bytes as expected", () => {
         let data = [
             "Prior to the introduction of TypedArray, ",
@@ -148,7 +164,7 @@ describe("Basic Socket Protocol", () => {
         let data = ["Hello, World!", 12345, true, false, null];
         let obj = { foo: "Hello, World", bar: ["an", "array"] };
         let arr = ["Hello", "World"];
-        let file = fs.readFileSync(filename)
+        let file = fs.readFileSync(filename);
         let buf = bsp.encode(...data);
         let objBuf = bsp.encode(obj);
         let arrBuf = bsp.encode(arr);
@@ -188,7 +204,7 @@ describe("Basic Socket Protocol", () => {
         let data = ["Hello, World!", 12345, true, false, null];
         let obj = { foo: "Hello, World", bar: ["an", "array"] };
         let arr = ["Hello", "World"];
-        let file = fs.readFileSync(filename)
+        let file = fs.readFileSync(filename);
 
         let serverData = [];
         let clientData = [];

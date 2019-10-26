@@ -89,7 +89,7 @@ more data in order to decode.
     4. `3` bigint (as in string)
     5. `4` boolean (as in buffer of number `0` and `1`)
     6. `5` object (as in json string)
-    7. `6` binary (as in buffer)
+    7. `6` binary (as in Buffer for Node.js and Uint8Array for Browsers)
 
 2. `lengthType` A secondary type in number indicates the type of length mark.
     1. `1` payload length between 0 - 255.
@@ -117,8 +117,8 @@ more data in order to decode.
 ## API
 
 - `wrap<T extends Stream>(stream: T): T`
-- `encode(...data: any[]): Buffer`
-- `decode(buf: Buffer, temp: any[]): IterableIterator<any>`
+- `encode(...data: any[]): Buffer | Uint8Array`
+- `decode(buf: Buffer | Uint8Array, temp: any[]): IterableIterator<any>`
 
 Most of the time, just use `wrap()` to automatically wrap the stream/socket
 object, all data will be automatically encoded and decoded without any headache.
