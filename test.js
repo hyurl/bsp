@@ -94,7 +94,7 @@ describe("Basic Socket Protocol", () => {
     });
 
     it("should encode and decode buffer as expected", () => {
-        let filename = __dirname + "/buffer.html";
+        let filename = __dirname + "/README.md";
         let data = fs.readFileSync(filename);
         let buf = bsp.encode(data);
         let temp = [];
@@ -109,7 +109,7 @@ describe("Basic Socket Protocol", () => {
     });
 
     it("should encode and decode Uint8Array as expected", () => {
-        let filename = __dirname + "/buffer.html";
+        let filename = __dirname + "/README.md";
         let data = Uint8Array.from(fs.readFileSync(filename));
         let buf = bsp.encode(data);
         let temp = [];
@@ -145,7 +145,7 @@ describe("Basic Socket Protocol", () => {
     });
 
     it("should encode and decode string larger than 65535 bytes as expected", () => {
-        let filename = __dirname + "/buffer.html";
+        let filename = __dirname + "/README.md";
         let data = fs.readFileSync(filename, "utf8");
         let buf = bsp.encode(data);
         let temp = [];
@@ -160,7 +160,7 @@ describe("Basic Socket Protocol", () => {
     });
 
     it("should encode and decode multiple pieces of data as expected", () => {
-        let filename = __dirname + "/buffer.html";
+        let filename = __dirname + "/README.md";
         let data = ["Hello, World!", 12345, true, false, null];
         let obj = { foo: "Hello, World", bar: ["an", "array"] };
         let arr = ["Hello", "World"];
@@ -200,7 +200,7 @@ describe("Basic Socket Protocol", () => {
     });
 
     it("should wrap net socket as expected", (done) => {
-        let filename = __dirname + "/buffer.html";
+        let filename = __dirname + "/README.md";
         let data = ["Hello, World!", 12345, true, false, null];
         let obj = { foo: "Hello, World", bar: ["an", "array"] };
         let arr = ["Hello", "World"];
