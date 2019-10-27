@@ -112,12 +112,12 @@ function encode(...data) {
         if (len <= 255) {
             head.push(1, len);
         } else {
-            let blen = len <= 65535 ? 16 : 64;
-            let bin = sprintf(`%0${blen}b`, len);
+            let binLen = len <= 65535 ? 16 : 64;
+            let bin = sprintf(`%0${binLen}b`, len);
 
             head.push(len <= 65535 ? 2 : 3);
 
-            for (let i = 0; i < blen;) {
+            for (let i = 0; i < binLen;) {
                 head.push(parseInt(bin.slice(i, i += 8), 2));
             }
         }
@@ -139,7 +139,6 @@ function parsePayloadInfo(buf) {
     let [type, lenType] = buf;
     let offset = [0, 3, 4, 10][lenType];
     let length = -1;
-    let bin = "";
 
     if (type > 6 || lenType > 3) {
         return false; // malformed/unencoded data
@@ -149,26 +148,17 @@ function parsePayloadInfo(buf) {
         return null;  // header frame
     }
 
-    switch (lenType) {
-        case 1:
-            length = buf[2];
-            break;
+    if (lenType === 1) {
+        length = buf[2];
+    } else {
+        let bin = "";
+        let headEnd = lenType === 2 ? 4 : 10;
 
-        case 2:
-            for (let i = 2; i < 4; i++) {
-                bin += sprintf("%08b", buf[i]);
-            }
+        for (let i = 2; i < headEnd; i++) {
+            bin += sprintf("%08b", buf[i]);
+        }
 
-            length = parseInt(bin, 2);
-            break;
-
-        case 3:
-            for (let i = 2; i < 10; i++) {
-                bin += sprintf("%08b", buf[i]);
-            }
-
-            length = parseInt(bin, 2);
-            break;
+        length = parseInt(bin, 2);
     }
 
     return { type, offset, length };
