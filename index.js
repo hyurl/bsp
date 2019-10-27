@@ -58,12 +58,17 @@ function concatBuffers(bufs) {
 }
 
 function encode(...data) {
+    if (data.length === 0) {
+        throw new SyntaxError("encode function requires at least one argument");
+    }
+
     let buf = TypedArray.from([]);
 
     for (let payload of data) {
         let type = NaN;
+        let _type = typeof payload;
 
-        switch (typeof payload) {
+        switch (_type) {
             case "string":
                 type = 1;
                 payload = encodeText(payload);
@@ -85,7 +90,8 @@ function encode(...data) {
                 break;
 
             case "object":
-                if (null === payload) {
+            case "undefined":
+                if (null === payload || undefined === payload) {
                     type = 0;
                     payload = TypedArray.from([]);
                 } else if (isBufferLike(payload)) {
@@ -95,6 +101,9 @@ function encode(...data) {
                     payload = encodeText(JSON.stringify(payload));
                 }
                 break;
+
+            default:
+                throw new TypeError(`unsupported payload type '${_type}'`);
         }
 
         let head = [type];
@@ -253,6 +262,10 @@ function* decodeSegment(buf, temp) {
             case 6:
                 yield payload;
                 break;
+
+            default:
+                throw TypeError(
+                    `unknown payload type '${sprintf("0x02X", type)}'`);
         }
 
         if (buf.byteLength > 0) {

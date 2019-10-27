@@ -252,4 +252,16 @@ describe("Basic Socket Protocol", () => {
 
         assert.strictEqual(result, data);
     });
+
+    it("should throw TypeError on unsupported type", () => {
+        let err;
+
+        try {
+            bsp.encode(Symbol("SS"));
+        } catch (e) {
+            err = e;
+        }
+
+        assert.strictEqual(err.name, "TypeError");
+    });
 });
