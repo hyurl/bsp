@@ -111,16 +111,13 @@ function encode(...data) {
 
         if (len <= 255) {
             head.push(1, len);
-        } else if (len <= 65535) {
-            head.push(2);
-
-            for (let i = 0, bin = sprintf("%016b", len); i < 16;) {
-                head.push(parseInt(bin.slice(i, i += 8), 2));
-            }
         } else {
-            head.push(3);
+            let blen = len <= 65535 ? 16 : 64;
+            let bin = sprintf(`%0${blen}b`, len);
 
-            for (let i = 0, bin = sprintf("%064b", len); i < 64;) {
+            head.push(len <= 65535 ? 2 : 3);
+
+            for (let i = 0; i < blen;) {
                 head.push(parseInt(bin.slice(i, i += 8), 2));
             }
         }
