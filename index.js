@@ -103,7 +103,7 @@ function encode(...data) {
                 break;
 
             default:
-                throw new TypeError(`unsupported payload type '${_type}'`);
+                throw new TypeError(`unsupported payload type (${_type})`);
         }
 
         let head = [type];
@@ -226,33 +226,33 @@ function* decodeSegment(buf, temp) {
                 yield null;
                 break;
 
-            case 1:
+            case 1: // string
                 yield decodeText(payload);
                 break;
 
-            case 2:
+            case 2: // number
                 yield Number(decodeText(payload));
                 break;
 
-            case 3:
+            case 3: // bigint
                 yield BigInt(decodeText(payload));
                 break;
 
-            case 4:
+            case 4: // boolean
                 yield Boolean(payload[0]);
                 break;
 
-            case 5:
+            case 5: // object
                 yield JSON.parse(decodeText(payload));
                 break;
 
-            case 6:
+            case 6: // binary
                 yield payload;
                 break;
 
             default:
                 throw TypeError(
-                    `unknown payload type '${sprintf("0x02X", type)}'`);
+                    `unknown payload type (${sprintf("0x02X", type)})`);
         }
 
         if (buf.byteLength > 0) {

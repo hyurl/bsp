@@ -1,5 +1,5 @@
 .*
-*.html
+*.bin
 *.tgz
 test.js
 *.config.js
