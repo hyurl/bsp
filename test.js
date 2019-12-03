@@ -5,6 +5,8 @@ const bsp = require(".");
 const assert = require("assert");
 const fs = require("fs");
 const net = require("net");
+const BSON = require("bson-ext");
+const FRON = require("fron");
 
 describe("Basic Socket Protocol", () => {
     it("should encode and decode string as expected", () => {
@@ -263,5 +265,58 @@ describe("Basic Socket Protocol", () => {
         }
 
         assert.strictEqual(err.name, "TypeError");
+    });
+
+    it("should create a custom BSP instance using BSON", () => {
+        let bson = new BSON([
+            BSON.Binary,
+            BSON.Code,
+            BSON.DBRef,
+            BSON.Decimal128,
+            BSON.Double,
+            BSON.Int32,
+            BSON.Long,
+            BSON.Map,
+            BSON.MaxKey,
+            BSON.MinKey,
+            BSON.ObjectId,
+            BSON.BSONRegExp,
+            BSON.Symbol,
+            BSON.Timestamp
+        ]);
+        let _bsp = new bsp.BSP({
+            objectSerializer: bson.serialize.bind(bson),
+            objectDeserializer: bson.deserialize.bind(bson),
+            serializationStyle: "buffer"
+        });
+
+        let data = {
+            foo: "Hello",
+            bar: "World",
+            regexp: /Hello[ ]\S+/,
+            date: new Date()
+        };
+        let buf = _bsp.encode(data);
+        let result = _bsp.decode(buf);
+
+        assert.deepStrictEqual(result, data);
+    });
+
+    it("should create a custom BSP instance using FRON", () => {
+        let _bsp = new bsp.BSP({
+            objectSerializer: FRON.stringify,
+            objectDeserializer: FRON.parse,
+        });
+
+        let data = {
+            foo: "Hello",
+            bar: "World",
+            regexp: /Hello[ ]\S+/,
+            date: new Date()
+        };
+        let buf = _bsp.encode(data);
+        let result = _bsp.decode(buf);
+
+        assert.deepStrictEqual(result, data);
     });
 });

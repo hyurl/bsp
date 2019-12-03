@@ -116,9 +116,11 @@ more data in order to decode.
 
 ## API
 
-- `wrap<T extends Stream>(stream: T): T`
-- `encode(...data: any[]): Buffer | Uint8Array`
-- `decode`
+### Static API
+
+- `function wrap<T extends Stream>(stream: T): T`
+- `function encode(...data: any[]): Buffer | Uint8Array`
+- `function decode()`
     - `(buf: Buffer | Uint8Array) => any`
     - `(buf: Buffer | Uint8Array, temp: any[]) => IterableIterator<any>`
 
@@ -149,3 +151,63 @@ socket.write(bsp.encode("Hi, Mr. World!"));
 and decode truncated data, and cannot be mutated by any other means. If this
 argument is not provided, the decode function will only parse and return the
 first chunk of the data decoded.
+
+### BSP Class
+
+```ts
+declare class BSP {
+    constructor(options: {
+        objectSerializer: (obj: any) => string | Uint8Array;
+        objectDeserializer: (data: string | Uint8Array) => any;
+        /** @default "string" */
+        serializationStyle?: "string" | "buffer";
+    });
+    encode<T extends any>(...data: T[]): Buffer | Uint8Array;
+    decode<T extends any>(buf: Buffer | Uint8Array): T;
+    decode<T extends any>(buf: Buffer | Uint8Array, temp: any[]): IterableIterator<T>;
+    wrap<T extends Stream>(stream: T): T;
+}
+```
+
+This class is used to create a BSP instance using custom object
+serializer/deserializer other than JSON. The following example uses BSON in
+order to support compound types like RegExp, Date, etc.
+
+```js
+const bsp = require("bsp");
+const assert = require("assert");
+const BSON = require("bson-ext");
+
+let bson = new BSON([
+    BSON.Binary,
+    BSON.Code,
+    BSON.DBRef,
+    BSON.Decimal128,
+    BSON.Double,
+    BSON.Int32,
+    BSON.Long,
+    BSON.Map,
+    BSON.MaxKey,
+    BSON.MinKey,
+    BSON.ObjectId,
+    BSON.BSONRegExp,
+    BSON.Symbol,
+    BSON.Timestamp
+]);
+let _bsp = new bsp.BSP({
+    objectSerializer: bson.serialize.bind(bson),
+    objectDeserializer: bson.deserialize.bind(bson),
+    serializationStyle: "buffer"
+});
+
+let data = {
+    foo: "Hello",
+    bar: "World",
+    regexp: /Hello[ ]\S+/,
+    date: new Date()
+};
+let buf = _bsp.encode(data);
+let result = _bsp.decode(buf);
+
+assert.deepStrictEqual(result, data);
+```

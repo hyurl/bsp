@@ -57,76 +57,6 @@ function concatBuffers(bufs) {
     return concatTypedArray(TypedArray, ...bufs);
 }
 
-function encode(...data) {
-    if (data.length === 0) {
-        throw new SyntaxError("encode function requires at least one argument");
-    }
-
-    let buf = TypedArray.from([]);
-
-    for (let payload of data) {
-        let type = NaN;
-        let _type = typeof payload;
-
-        switch (_type) {
-            case "string":
-                type = 1;
-                payload = encodeText(payload);
-                break;
-
-            case "number":
-                type = 2;
-                payload = encodeText(payload.toString());
-                break;
-
-            case "bigint":
-                type = 3;
-                payload = encodeText(payload.toString());
-                break;
-
-            case "boolean":
-                type = 4;
-                payload = TypedArray.from([Number(payload)]);
-                break;
-
-            case "object":
-            case "undefined":
-                if (null === payload || undefined === payload) {
-                    type = 0;
-                    payload = TypedArray.from([]);
-                } else if (isBufferLike(payload)) {
-                    type = 6; // raw data
-                } else {
-                    type = 5;
-                    payload = encodeText(JSON.stringify(payload));
-                }
-                break;
-
-            default:
-                throw new TypeError(`unsupported payload type (${_type})`);
-        }
-
-        let head = [type];
-        let len = payload.byteLength;
-
-        if (len <= 255) {
-            head.push(1, len);
-        } else {
-            let binLen = len <= 65535 ? 16 : 64;
-            let bin = sprintf(`%0${binLen}b`, len);
-
-            head.push(len <= 65535 ? 2 : 3);
-
-            for (let i = 0; i < binLen;) {
-                head.push(parseInt(bin.slice(i, i += 8), 2));
-            }
-        }
-
-        buf = concatBuffers([buf, TypedArray.from(head), payload]);
-    }
-
-    return buf;
-}
 
 /**
  * @param {Buffer|Uint8Array} buf
@@ -204,9 +134,11 @@ function fillTemp(buf, temp) {
 /**
  * @param {Buffer|Uint8Array} buf 
  * @param {[number, number, Buffer|Uint8Array]} temp
+ * @param {Function} deserialize
+ * @param {"string" | "buffer"} serializationStyle
  * @returns {IterableIterator<any>}
  */
-function* decodeSegment(buf, temp) {
+function* decodeSegment(buf, temp, deserialize, serializationStyle) {
     // put the buffer into the temp
     if (temp.length === 0 || isHeaderTemp(temp)) {
         fillTemp(buf, temp);
@@ -243,7 +175,10 @@ function* decodeSegment(buf, temp) {
                 break;
 
             case 5: // object
-                yield JSON.parse(decodeText(payload));
+                if (serializationStyle === "string")
+                    yield deserialize(decodeText(payload));
+                else
+                    yield deserialize(payload);
                 break;
 
             case 6: // binary
@@ -263,60 +198,164 @@ function* decodeSegment(buf, temp) {
     }
 }
 
-/**
- * @param {Buffer|Uint8Array} buf 
- */
-function decode(buf) {
-    if (arguments.length === 2 && Array.isArray(arguments[1])) {
-        return decodeSegment(buf, arguments[1]);
-    } else {
-        return decodeSegment(buf, []).next().value;
+class BSP {
+    /**
+     * @param {{
+            objectSerializer: Function,
+            objectDeserializer: Function,
+            serializationStyle?: "string" | "buffer"
+        }} options 
+     */
+    constructor(options) {
+        this._serialize = options.objectSerializer;
+        this._deserialize = options.objectDeserializer;
+        this._serializationStyle = options.serializationStyle || "string";
+    }
+
+    encode(...data) {
+        if (data.length === 0) {
+            throw new SyntaxError("encode function requires at least one argument");
+        }
+
+        let buf = TypedArray.from([]);
+
+        for (let payload of data) {
+            let type = NaN;
+            let _type = typeof payload;
+
+            switch (_type) {
+                case "string":
+                    type = 1;
+                    payload = encodeText(payload);
+                    break;
+
+                case "number":
+                    type = 2;
+                    payload = encodeText(payload.toString());
+                    break;
+
+                case "bigint":
+                    type = 3;
+                    payload = encodeText(payload.toString());
+                    break;
+
+                case "boolean":
+                    type = 4;
+                    payload = TypedArray.from([Number(payload)]);
+                    break;
+
+                case "object":
+                case "undefined":
+                    if (null === payload || undefined === payload) {
+                        type = 0;
+                        payload = TypedArray.from([]);
+                    } else if (isBufferLike(payload)) {
+                        type = 6; // raw data
+                    } else {
+                        type = 5;
+                        payload = this._serialize(payload);
+
+                        if (typeof payload === "string")
+                            payload = encodeText(payload);
+                    }
+                    break;
+
+                default:
+                    throw new TypeError(`unsupported payload type (${_type})`);
+            }
+
+            let head = [type];
+            let len = payload.byteLength;
+
+            if (len <= 255) {
+                head.push(1, len);
+            } else {
+                let binLen = len <= 65535 ? 16 : 64;
+                let bin = sprintf(`%0${binLen}b`, len);
+
+                head.push(len <= 65535 ? 2 : 3);
+
+                for (let i = 0; i < binLen;) {
+                    head.push(parseInt(bin.slice(i, i += 8), 2));
+                }
+            }
+
+            buf = concatBuffers([buf, TypedArray.from(head), payload]);
+        }
+
+        return buf;
+    }
+
+    /**
+     * @param {Buffer|Uint8Array} buf 
+     */
+    decode(buf) {
+        if (arguments.length === 2 && Array.isArray(arguments[1])) {
+            return decodeSegment(
+                buf, arguments[1],
+                this._deserialize,
+                this._serializationStyle
+            );
+        } else {
+            return decodeSegment(
+                buf,
+                [],
+                this._deserialize,
+                this._serializationStyle
+            ).next().value;
+        }
+    }
+
+    wrap(stream) {
+        let _write = stream.write.bind(stream);
+        let _on = stream.on.bind(stream);
+        let _once = stream.once.bind(stream);
+        let _prepend = stream.prependListener.bind(stream);
+        let _prependOnce = stream.prependOnceListener.bind(stream);
+        let addListener = (fn, event, listener) => {
+            if (event === "data") {
+                let temp = [];
+                let _listener = (buf) => {
+                    for (let data of this.decode(buf, temp)) {
+                        listener(data);
+                    }
+                };
+                return fn("data", _listener);
+            } else {
+                return fn(event, listener);
+            }
+        };
+
+        stream.write = (chunk, encoding, callback) => {
+            return _write(this.encode(chunk), encoding, callback);
+        };
+
+        stream.on = stream.addListener = function on(event, listener) {
+            return addListener(_on, event, listener);
+        };
+
+        stream.once = function once(event, listener) {
+            return addListener(_once, event, listener);
+        };
+
+        stream.prependListener = function prependListener(event, listener) {
+            return addListener(_prepend, event, listener);
+        };
+
+        stream.prependOnceListener = function prependOnceListener(event, listener) {
+            return addListener(_prependOnce, event, listener);
+        };
+
+        return stream;
     }
 }
 
-function wrap(stream) {
-    let _write = stream.write.bind(stream);
-    let _on = stream.on.bind(stream);
-    let _once = stream.once.bind(stream);
-    let _prepend = stream.prependListener.bind(stream);
-    let _prependOnce = stream.prependOnceListener.bind(stream);
-    let addListener = (fn, event, listener) => {
-        if (event === "data") {
-            let temp = [];
-            let _listener = (buf) => {
-                for (let data of decode(buf, temp)) {
-                    listener(data);
-                }
-            };
-            return fn("data", _listener);
-        } else {
-            return fn(event, listener);
-        }
-    };
+const BSPStatic = new BSP({
+    objectSerializer: JSON.stringify,
+    objectDeserializer: JSON.parse
+});
 
-    stream.write = function write(chunk, encoding, callback) {
-        return _write(encode(chunk), encoding, callback);
-    };
-
-    stream.on = stream.addListener = function on(event, listener) {
-        return addListener(_on, event, listener);
-    };
-
-    stream.once = function once(event, listener) {
-        return addListener(_once, event, listener);
-    };
-
-    stream.prependListener = function prependListener(event, listener) {
-        return addListener(_prepend, event, listener);
-    };
-
-    stream.prependOnceListener = function prependOnceListener(event, listener) {
-        return addListener(_prependOnce, event, listener);
-    };
-
-    return stream;
-}
-
-exports.encode = encode;
-exports.decode = decode;
-exports.wrap = wrap;
+exports.BSP = BSP;
+exports.encode = BSPStatic.encode.bind(BSPStatic);
+exports.decode = BSPStatic.decode.bind(BSPStatic);
+exports.wrap = BSPStatic.wrap.bind(BSPStatic);
