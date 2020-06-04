@@ -1,11 +1,12 @@
 {
   "name": "bsp",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Basic Socket Protocol",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "mocha --exit"
+    "test": "mocha --exit",
+    "prepublishOnly": "webpack"
   },
   "repository": {
     "type": "git",
