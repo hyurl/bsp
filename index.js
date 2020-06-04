@@ -153,6 +153,12 @@ function* decodeSegment(buf, temp, deserialize, serializationStyle) {
 
         buf = buf.slice(length);
 
+        if (buf.byteLength > 0) {
+            fillTemp(buf, temp);
+        } else {
+            temp.splice(0, 3); // clean temp
+        }
+
         switch (type) {
             case 0: // null
                 yield null;
@@ -188,12 +194,6 @@ function* decodeSegment(buf, temp, deserialize, serializationStyle) {
             default:
                 throw TypeError(
                     `unknown payload type (${sprintf("%02X", type)})`);
-        }
-
-        if (buf.byteLength > 0) {
-            fillTemp(buf, temp);
-        } else {
-            temp.splice(0, 3); // clean temp
         }
     }
 }
@@ -315,9 +315,10 @@ class BSP {
         let addListener = (fn, event, listener) => {
             if (event === "data") {
                 let temp = [];
-                let _listener = (buf) => {
+                let _listener = async (buf) => {
                     for (let data of this.decode(buf, temp)) {
                         listener(data);
+                        await Promise.resolve(); // make async
                     }
                 };
                 return fn("data", _listener);
