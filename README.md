@@ -99,7 +99,7 @@ more data in order to decode.
 3. `length` According to different `lengthType`. the marks of payload length is
     different.
     1. If `lengthType` is `1`, `length` is a mark of number between 0 - 255.
-    2. If `lengthType` is `2`, `legnth` is a mark of two numbers, each of them
+    2. If `lengthType` is `2`, `length` is a mark of two numbers, each of them
         is between 0 - 255.
     3. If `lengthType` is `3`, `length` is a mark of 8 numbers, each of them is
         between 0 - 255.

@@ -187,7 +187,7 @@ function* decodeSegment(buf, temp, deserialize, serializationStyle) {
 
             default:
                 throw TypeError(
-                    `unknown payload type (${sprintf("0x02X", type)})`);
+                    `unknown payload type (${sprintf("%02X", type)})`);
         }
 
         if (buf.byteLength > 0) {
